@@ -61,7 +61,7 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .splash .brand-mark{font-size:2.2rem; color:var(--accent);}
 .splash h1{font-size:2.1rem; line-height:1.25; margin:4px 0;}
 .splash p{margin:0; color:var(--ink-soft); font-size:.9rem;}
-.hero-stats{display:flex; gap:14px; flex-wrap:wrap;}
+.hero-stats{display:flex; flex-direction:column; gap:8px; width:100%;}
 .stat{display:flex; flex-direction:column; gap:2px; padding:10px 16px; border-radius:var(--radius-sm); min-width:110px; flex:1 1 0;}
 .stat-income{background:var(--income-bg);}
 .stat-expense{background:var(--expense-bg);}
@@ -137,7 +137,6 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 @media (max-width:520px){
   .form-grid{grid-template-columns:1fr;}
   .hero{flex-direction:column; align-items:flex-start;}
-  .hero-stats{width:100%;}
   .row{
     display:grid;
     grid-template-columns:14px 1fr auto;
@@ -199,16 +198,12 @@ function formatDate(d){
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString(undefined, {month:'short', day:'numeric'});
 }
-const GOOD_MESSAGE = 'හනේ මෙන්න මෙයා සල්ලි ඉතුරු කරලා 🥹💰 හොඳ ළමයා ❤️';
-const WARN_MESSAGE = 'ඔය විදිහට සල්ලි නාස්ති කරන්න එපා හොඳේ 😒💸';
+const WARN_MESSAGE = 'කරුණාකර ණය ගෙවීමට වගබලාගන්න 😒💸';
 function statusMessage(balance, symbol){
   if (balance < 0){
     return { text: WARN_MESSAGE, tone: 'warn' };
   }
-  if (balance === 0){
-    return { text: 'Right on zero — breaking even.', tone: 'neutral' };
-  }
-  return { text: GOOD_MESSAGE, tone: 'good' };
+  return null;
 }
 function formatAmount(amount, symbol){
   const n = Number(amount) || 0;
@@ -376,7 +371,7 @@ function renderApp(){
     '<section class="hero">' +
       '<div class="hero-balance"><span class="hero-label">Balance' + (filter==='month' ? ' · this month' : '') + '</span>' +
       '<span class="hero-number' + (totals.balance < 0 ? ' neg' : '') + '">' + formatAmount(totals.balance, settings.currency) + '</span>' +
-      (function(){ const m = statusMessage(totals.balance, settings.currency); return '<p class="hero-status hero-status-' + m.tone + '">' + escapeHtml(m.text) + '</p>'; })() +
+      (function(){ const m = statusMessage(totals.balance, settings.currency); return m ? '<p class="hero-status hero-status-' + m.tone + '">' + escapeHtml(m.text) + '</p>' : ''; })() +
       '</div>' +
       '<div class="hero-stats">' +
         '<div class="stat stat-income"><span class="stat-label">Income</span><span class="stat-value">' + formatAmount(totals.income, settings.currency) + '</span></div>' +

@@ -129,6 +129,11 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:var(--paper);
   padding:10px 18px; border-radius:999px; font-size:.85rem; box-shadow:var(--shadow); z-index:20;}
 .toast .link-btn{color:var(--paper); font-weight:600;}
+.fab{position:fixed; right:calc(20px + env(safe-area-inset-right,0px)); bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  width:58px; height:58px; border-radius:50%; border:none; background:var(--accent); color:var(--accent-ink);
+  font-size:1.8rem; line-height:1; cursor:pointer; box-shadow:var(--shadow); z-index:5;
+  display:flex; align-items:center; justify-content:center;}
+.fab:hover{filter:brightness(1.05);}
 @media (max-width:520px){
   .form-grid{grid-template-columns:1fr;}
   .hero{flex-direction:column; align-items:flex-start;}
@@ -174,6 +179,7 @@ let filter = 'all';
 let categoryTab = 'income';
 let settingsOpen = false;
 let editingId = null;
+let addOpen = false;
 let lastDeleted = null;
 let toastTimer = null;
 let flashTimer = null;
@@ -250,23 +256,29 @@ function groupByMonth(list){
   });
 }
 
-function renderAddForm(){
-  return '<form id="add-form" class="card add-form" data-action="add">' +
-    '<div class="type-toggle" role="radiogroup" aria-label="Type">' +
-      '<label class="pill pill-income"><input type="radio" name="type" value="income" checked> Income</label>' +
-      '<label class="pill pill-expense"><input type="radio" name="type" value="expense"> Expense</label>' +
-    '</div>' +
-    '<div class="form-grid">' +
-      '<label class="field"><span>Amount</span><input type="number" name="amount" min="0" step="0.01" inputmode="decimal" required placeholder="0.00"></label>' +
-      '<label class="field"><span>Category</span><select name="category" id="category-select">' +
-        categoriesForType('income').map(function(c){ return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>'; }).join('') +
-      '</select></label>' +
-      '<label class="field"><span>Date</span><input type="date" name="date" value="' + todayStr() + '" required></label>' +
-      '<label class="field field-wide"><span>Note (optional)</span><input type="text" name="note" maxlength="80" placeholder="e.g. Groceries at the market"></label>' +
-    '</div>' +
-    '<p class="form-error" hidden></p>' +
-    '<button type="submit" class="btn btn-primary">Add transaction</button>' +
-  '</form>';
+function renderAddModal(){
+  return '<div class="modal-overlay" id="add-overlay"' + (addOpen ? '' : ' hidden') + '>' +
+    '<form class="modal card" id="add-form" data-action="add">' +
+      '<h2>Add transaction</h2>' +
+      '<div class="type-toggle" role="radiogroup" aria-label="Type">' +
+        '<label class="pill pill-income"><input type="radio" name="type" value="income" checked> Income</label>' +
+        '<label class="pill pill-expense"><input type="radio" name="type" value="expense"> Expense</label>' +
+      '</div>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>Amount</span><input type="number" name="amount" min="0" step="0.01" inputmode="decimal" required placeholder="0.00"></label>' +
+        '<label class="field"><span>Category</span><select name="category" id="category-select">' +
+          categoriesForType('income').map(function(c){ return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>'; }).join('') +
+        '</select></label>' +
+        '<label class="field"><span>Date</span><input type="date" name="date" value="' + todayStr() + '" required></label>' +
+        '<label class="field field-wide"><span>Note (optional)</span><input type="text" name="note" maxlength="80" placeholder="e.g. Groceries at the market"></label>' +
+      '</div>' +
+      '<p class="form-error" hidden></p>' +
+      '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" data-action="close-add">Cancel</button>' +
+        '<button type="submit" class="btn btn-primary">Add transaction</button>' +
+      '</div>' +
+    '</form>' +
+  '</div>';
 }
 function renderRow(t){
   const sign = t.type === 'income' ? '+' : '−';
@@ -385,11 +397,12 @@ function renderApp(){
       '<button type="button" class="chip' + (filter==='all'?' active':'') + '" data-action="filter" data-value="all">All time</button>' +
       '<button type="button" class="chip' + (filter==='month'?' active':'') + '" data-action="filter" data-value="month">This month</button>' +
     '</div>' +
-    renderAddForm() +
     (hasExamples ? '<div class="banner banner-muted">Sample entries are shown so you can see how it works. <button type="button" class="link-btn" data-action="clear-examples">Clear sample data</button></div>' : '') +
     '<section class="ledger">' +
       (groups.length ? groups.map(renderGroup).join('') : '<p class="empty">No transactions ' + (filter==='month' ? 'this month' : 'yet') + '.</p>') +
     '</section>' +
+    '<button type="button" class="fab" data-action="open-add" aria-label="Add transaction">+</button>' +
+    renderAddModal() +
     renderSettingsModal() +
     renderEditModal() +
     '<div id="toast" class="toast" hidden></div>'
@@ -466,6 +479,7 @@ setTimeout(function(){ splashMinTimePassed = true; maybeHideSplash(); }, 1800);
 appEl.addEventListener('click', function(e){
   if (e.target && e.target.id === 'settings-overlay'){ settingsOpen = false; render(); return; }
   if (e.target && e.target.id === 'edit-overlay'){ editingId = null; render(); return; }
+  if (e.target && e.target.id === 'add-overlay'){ addOpen = false; render(); return; }
   const btn = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!btn) return;
   const action = btn.getAttribute('data-action');
@@ -475,6 +489,10 @@ appEl.addEventListener('click', function(e){
     settingsOpen = false; render();
   } else if (action === 'close-edit'){
     editingId = null; render();
+  } else if (action === 'open-add'){
+    addOpen = true; render();
+  } else if (action === 'close-add'){
+    addOpen = false; render();
   } else if (action === 'cat-tab'){
     categoryTab = btn.getAttribute('data-value'); render();
   } else if (action === 'delete-category'){
@@ -612,7 +630,7 @@ appEl.addEventListener('submit', function(e){
     };
     supabase.from('transactions').insert(tx).then(function(res){
       if (res.error){ flash(form, 'Could not save. Check your connection.'); return; }
-      form.reset();
+      addOpen = false;
       loadAll();
     });
   } else if (action === 'save-settings'){

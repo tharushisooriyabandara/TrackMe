@@ -198,27 +198,16 @@ function formatDate(d){
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString(undefined, {month:'short', day:'numeric'});
 }
-const GOOD_MESSAGES = [
-  'Nice! You’re in the green.',
-  'Looking good — keep it up!',
-  'You’re ahead this stretch. \u{1F389}',
-  'Solid! Balance is holding steady.'
-];
-const WARN_MESSAGES = [
-  'Aiyoo… you’re short by {amt}.',
-  'Uh oh — you’re due {amt}.',
-  'Careful, you’re {amt} in the red.'
-];
+const GOOD_MESSAGE = 'සල්ලි ඉතුරු කළාද? අන්න හොඳ ළමයා 😌💰❤️';
+const WARN_MESSAGE = 'අනේ අනේ… සල්ලි ඉතුරු කරන්නෙත් නෑ, වියදම් කරන එක නම් හොඳට කරනවා නේ 😂💸 තාරූට ණයත් තියෙනවා හොඳේ 😒';
 function statusMessage(balance, symbol){
   if (balance < 0){
-    const amt = formatAmount(Math.abs(balance), symbol);
-    const tmpl = WARN_MESSAGES[Math.abs(Math.round(balance)) % WARN_MESSAGES.length];
-    return { text: tmpl.replace('{amt}', amt), tone: 'warn' };
+    return { text: WARN_MESSAGE, tone: 'warn' };
   }
   if (balance === 0){
     return { text: 'Right on zero — breaking even.', tone: 'neutral' };
   }
-  return { text: GOOD_MESSAGES[Math.round(balance) % GOOD_MESSAGES.length], tone: 'good' };
+  return { text: GOOD_MESSAGE, tone: 'good' };
 }
 function formatAmount(amount, symbol){
   const n = Number(amount) || 0;

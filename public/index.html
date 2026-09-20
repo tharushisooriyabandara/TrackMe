@@ -88,6 +88,8 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .btn{font:inherit; border-radius:999px; padding:10px 20px; border:1px solid transparent; cursor:pointer; font-weight:600; font-size:.92rem;}
 .btn-primary{background:var(--accent); color:var(--accent-ink); margin-top:16px;}
 .btn-ghost{background:transparent; border-color:var(--line); color:var(--ink);}
+.btn-danger{background:var(--expense); color:#fff;}
+.confirm-detail{color:var(--ink-soft); font-size:.92rem; margin:0;}
 .link-btn{background:none; border:none; color:var(--accent); text-decoration:underline; cursor:pointer; font:inherit; padding:0;}
 .month-group{display:flex; flex-direction:column; gap:8px;}
 .month-label{font-size:1rem; font-weight:600; color:var(--ink-soft); margin-top:4px;}
@@ -198,6 +200,7 @@ let categoryTab = 'income';
 let settingsOpen = false;
 let editingId = null;
 let viewingId = null;
+let confirmDeleteId = null;
 let addOpen = false;
 let lastDeleted = null;
 let toastTimer = null;
@@ -355,6 +358,21 @@ function renderSettingsModal(){
     '</div>' +
   '</div>';
 }
+function renderConfirmModal(){
+  const tx = confirmDeleteId ? transactions.find(function(t){ return t.id === confirmDeleteId; }) : null;
+  if (!tx){ return '<div class="modal-overlay" id="confirm-overlay" hidden></div>'; }
+  const sign = tx.type === 'income' ? '+' : '−';
+  return '<div class="modal-overlay" id="confirm-overlay">' +
+    '<div class="modal card">' +
+      '<h2>Delete transaction?</h2>' +
+      '<p class="confirm-detail">' + escapeHtml(tx.note || tx.category) + ' — ' + sign + formatAmount(tx.amount, settings.currency) + '</p>' +
+      '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" data-action="close-confirm">Cancel</button>' +
+        '<button type="button" class="btn btn-danger" data-action="confirm-delete">Delete</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
 function renderViewModal(){
   const tx = viewingId ? transactions.find(function(t){ return t.id === viewingId; }) : null;
   if (!tx){ return '<div class="modal-overlay" id="view-overlay" hidden></div>'; }
@@ -443,6 +461,7 @@ function renderApp(){
     renderSettingsModal() +
     renderViewModal() +
     renderEditModal() +
+    renderConfirmModal() +
     '<div id="toast" class="toast" hidden></div>'
   );
 }
@@ -546,6 +565,7 @@ appEl.addEventListener('click', function(e){
   if (e.target && e.target.id === 'edit-overlay'){ editingId = null; render(); return; }
   if (e.target && e.target.id === 'add-overlay'){ addOpen = false; render(); return; }
   if (e.target && e.target.id === 'view-overlay'){ viewingId = null; render(); return; }
+  if (e.target && e.target.id === 'confirm-overlay'){ confirmDeleteId = null; render(); return; }
   const btn = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!btn) return;
   const action = btn.getAttribute('data-action');
@@ -559,6 +579,13 @@ appEl.addEventListener('click', function(e){
     viewingId = null; render();
   } else if (action === 'edit-from-view'){
     viewingId = null; editingId = btn.getAttribute('data-id'); render();
+  } else if (action === 'close-confirm'){
+    confirmDeleteId = null; render();
+  } else if (action === 'confirm-delete'){
+    const id = confirmDeleteId;
+    confirmDeleteId = null;
+    render();
+    if (id) deleteTransaction(id);
   } else if (action === 'open-add'){
     addOpen = true; render();
   } else if (action === 'close-add'){
@@ -654,8 +681,10 @@ function endSwipe(){
   const id = swipe.id;
   rowEl.style.transition = 'transform .18s ease';
   if (swipe.dx <= -SWIPE_MIN_PX){
-    rowEl.style.transform = 'translateX(-100%)';
-    setTimeout(function(){ deleteTransaction(id); }, 160);
+    rowEl.style.transform = 'translateX(0)';
+    swipe.bgEl.style.opacity = '0';
+    confirmDeleteId = id;
+    render();
   } else if (swipe.dx >= SWIPE_MIN_PX){
     rowEl.style.transform = 'translateX(0)';
     swipe.bgEl.style.opacity = '0';

@@ -84,7 +84,7 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .rows{display:flex; flex-direction:column; gap:8px;}
 .row-wrap{position:relative; border-radius:var(--radius-sm); overflow:hidden;}
 .row-swipe-bg{position:absolute; inset:0; background:var(--expense); color:#fff; border-radius:var(--radius-sm);
-  display:flex; align-items:center; justify-content:flex-end; padding-right:22px; font-weight:600; font-size:.85rem;
+  display:flex; align-items:center; justify-content:flex-end; padding-left:22px; padding-right:22px; font-weight:600; font-size:.85rem;
   opacity:0; pointer-events:none;}
 .row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line);
   border-radius:var(--radius-sm); padding:12px 14px; position:relative; touch-action:pan-y; user-select:none;}
@@ -159,6 +159,7 @@ let categories = [];
 let filter = 'all';
 let categoryTab = 'income';
 let settingsOpen = false;
+let editingId = null;
 let lastDeleted = null;
 let toastTimer = null;
 let flashTimer = null;
@@ -300,6 +301,38 @@ function renderSettingsModal(){
     '</div>' +
   '</div>';
 }
+function renderEditModal(){
+  const tx = editingId ? transactions.find(function(t){ return t.id === editingId; }) : null;
+  if (!tx){ return '<div class="modal-overlay" id="edit-overlay" hidden></div>'; }
+  const cats = categoriesForType(tx.type);
+  const nameA = settings.names[0], nameB = settings.names[1];
+  return '<div class="modal-overlay" id="edit-overlay">' +
+    '<form class="modal card" id="edit-form" data-action="save-edit" data-id="' + escapeHtml(tx.id) + '">' +
+      '<h2>Edit transaction</h2>' +
+      '<div class="type-toggle" role="radiogroup" aria-label="Type">' +
+        '<label class="pill pill-income"><input type="radio" name="edit-type" value="income"' + (tx.type==='income'?' checked':'') + '> Income</label>' +
+        '<label class="pill pill-expense"><input type="radio" name="edit-type" value="expense"' + (tx.type==='expense'?' checked':'') + '> Expense</label>' +
+      '</div>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>Amount</span><input type="number" name="amount" min="0" step="0.01" inputmode="decimal" required value="' + escapeHtml(tx.amount) + '"></label>' +
+        '<label class="field"><span>Category</span><select name="category" id="edit-category-select">' +
+          cats.map(function(c){ return '<option value="' + escapeHtml(c.name) + '"' + (c.name===tx.category?' selected':'') + '>' + escapeHtml(c.name) + '</option>'; }).join('') +
+        '</select></label>' +
+        '<label class="field"><span>Date</span><input type="date" name="date" required value="' + escapeHtml(tx.date) + '"></label>' +
+        '<label class="field"><span>Who</span><select name="who">' +
+          '<option value="' + escapeHtml(nameA) + '"' + (tx.who===nameA?' selected':'') + '>' + escapeHtml(nameA) + '</option>' +
+          '<option value="' + escapeHtml(nameB) + '"' + (tx.who===nameB?' selected':'') + '>' + escapeHtml(nameB) + '</option>' +
+        '</select></label>' +
+        '<label class="field field-wide"><span>Note (optional)</span><input type="text" name="note" maxlength="80" value="' + escapeHtml(tx.note) + '"></label>' +
+      '</div>' +
+      '<p class="form-error" hidden></p>' +
+      '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" data-action="close-edit">Cancel</button>' +
+        '<button type="submit" class="btn btn-primary">Save changes</button>' +
+      '</div>' +
+    '</form>' +
+  '</div>';
+}
 function renderApp(){
   const sorted = transactions.slice().sort(function(a,b){
     const d = String(b.date||'').localeCompare(String(a.date||''));
@@ -333,6 +366,7 @@ function renderApp(){
       (groups.length ? groups.map(renderGroup).join('') : '<p class="empty">No transactions ' + (filter==='month' ? 'this month' : 'yet') + '.</p>') +
     '</section>' +
     renderSettingsModal() +
+    renderEditModal() +
     '<div id="toast" class="toast" hidden></div>'
   );
 }
@@ -392,6 +426,7 @@ async function loadAll(){
 
 appEl.addEventListener('click', function(e){
   if (e.target && e.target.id === 'settings-overlay'){ settingsOpen = false; render(); return; }
+  if (e.target && e.target.id === 'edit-overlay'){ editingId = null; render(); return; }
   const btn = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!btn) return;
   const action = btn.getAttribute('data-action');
@@ -399,6 +434,8 @@ appEl.addEventListener('click', function(e){
     settingsOpen = true; render();
   } else if (action === 'close-settings'){
     settingsOpen = false; render();
+  } else if (action === 'close-edit'){
+    editingId = null; render();
   } else if (action === 'cat-tab'){
     categoryTab = btn.getAttribute('data-value'); render();
   } else if (action === 'delete-category'){
@@ -462,9 +499,18 @@ appEl.addEventListener('pointermove', function(e){
     swipe.rowEl.style.transition = 'none';
     if (swipe.wrapEl.setPointerCapture){ try { swipe.wrapEl.setPointerCapture(e.pointerId); } catch (err) {} }
   }
-  const clamped = Math.min(0, Math.max(dx, -swipe.width));
+  const clamped = Math.min(swipe.width, Math.max(dx, -swipe.width));
   swipe.dx = clamped;
   swipe.rowEl.style.transform = 'translateX(' + clamped + 'px)';
+  if (clamped < 0){
+    swipe.bgEl.style.background = 'var(--expense)';
+    swipe.bgEl.style.justifyContent = 'flex-end';
+    swipe.bgEl.textContent = 'Delete';
+  } else if (clamped > 0){
+    swipe.bgEl.style.background = 'var(--accent)';
+    swipe.bgEl.style.justifyContent = 'flex-start';
+    swipe.bgEl.textContent = 'Edit';
+  }
   swipe.bgEl.style.opacity = String(Math.min(1, Math.abs(clamped) / SWIPE_MIN_PX));
 });
 
@@ -477,6 +523,11 @@ function endSwipe(){
   if (swipe.dx <= -SWIPE_MIN_PX){
     rowEl.style.transform = 'translateX(-100%)';
     setTimeout(function(){ deleteTransaction(id); }, 160);
+  } else if (swipe.dx >= SWIPE_MIN_PX){
+    rowEl.style.transform = 'translateX(0)';
+    swipe.bgEl.style.opacity = '0';
+    editingId = id;
+    render();
   } else {
     rowEl.style.transform = 'translateX(0)';
     swipe.bgEl.style.opacity = '0';
@@ -487,8 +538,9 @@ appEl.addEventListener('pointerup', endSwipe);
 appEl.addEventListener('pointercancel', endSwipe);
 
 appEl.addEventListener('change', function(e){
-  if (e.target && e.target.name === 'type'){
-    const sel = document.getElementById('category-select');
+  if (e.target && (e.target.name === 'type' || e.target.name === 'edit-type')){
+    const selId = e.target.name === 'type' ? 'category-select' : 'edit-category-select';
+    const sel = document.getElementById(selId);
     if (sel){
       const cats = categoriesForType(e.target.value);
       sel.innerHTML = cats.map(function(c){ return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>'; }).join('');
@@ -547,6 +599,24 @@ appEl.addEventListener('submit', function(e){
     }).then(function(res){
       if (res.error){ toast('Could not add category.'); return; }
       form.reset();
+      loadAll();
+    });
+  } else if (action === 'save-edit'){
+    const fd4 = new FormData(form);
+    const id = form.getAttribute('data-id');
+    const amount = parseFloat(fd4.get('amount'));
+    if (!amount || amount <= 0){ flash(form, 'Enter an amount greater than zero.'); return; }
+    const updated = {
+      type: fd4.get('edit-type') || 'expense',
+      amount: Math.round(amount * 100) / 100,
+      category: (fd4.get('category') || 'Other').toString().slice(0,40),
+      note: (fd4.get('note') || '').toString().slice(0,80),
+      who: (fd4.get('who') || settings.names[0]).toString(),
+      date: (fd4.get('date') || todayStr()).toString()
+    };
+    supabase.from('transactions').update(updated).eq('id', id).then(function(res){
+      if (res.error){ flash(form, 'Could not save changes.'); return; }
+      editingId = null;
       loadAll();
     });
   }

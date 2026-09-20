@@ -198,8 +198,8 @@ function formatDate(d){
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString(undefined, {month:'short', day:'numeric'});
 }
-const GOOD_MESSAGE = 'සල්ලි ඉතුරු කළාද? අන්න හොඳ ළමයා 😌💰❤️';
-const WARN_MESSAGE = 'අනේ අනේ… සල්ලි ඉතුරු කරන්නෙත් නෑ, වියදම් කරන එක නම් හොඳට කරනවා නේ 😂💸 තාරූට ණයත් තියෙනවා හොඳේ 😒';
+const GOOD_MESSAGE = 'හනේ මෙන්න මෙයා සල්ලි ඉතුරු කරලා 🥹💰 හොඳ ළමයා ❤️';
+const WARN_MESSAGE = 'ඔය විදිහට සල්ලි නාස්ති කරන්න එපා හොඳේ 😒💸';
 function statusMessage(balance, symbol){
   if (balance < 0){
     return { text: WARN_MESSAGE, tone: 'warn' };

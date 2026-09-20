@@ -118,6 +118,13 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .modal{max-width:420px; width:100%; max-height:88vh; overflow-y:auto; display:flex; flex-direction:column; gap:14px;}
 .modal h2{font-size:1.2rem;}
 .modal-actions{display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-top:6px;}
+.view-rows{display:flex; flex-direction:column; gap:14px;}
+.view-row{display:flex; justify-content:space-between; align-items:center; gap:12px;
+  padding-bottom:12px; border-bottom:1px solid var(--line);}
+.view-row:last-child{border-bottom:none; padding-bottom:0;}
+.view-label{font-size:.8rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; flex:none;}
+.view-value{font-size:1rem; font-weight:600; color:var(--ink); text-align:right;}
+.view-value.row-amount{width:auto; margin-top:0; align-self:auto;}
 .modal-actions .btn{margin-top:0;}
 .cat-manager{border-top:1px solid var(--line); padding-top:14px; display:flex; flex-direction:column; gap:10px;}
 .cat-list{display:flex; flex-direction:column; gap:2px; max-height:180px; overflow-y:auto;}
@@ -190,6 +197,7 @@ let filter = 'all';
 let categoryTab = 'income';
 let settingsOpen = false;
 let editingId = null;
+let viewingId = null;
 let addOpen = false;
 let lastDeleted = null;
 let toastTimer = null;
@@ -345,6 +353,29 @@ function renderSettingsModal(){
     '</div>' +
   '</div>';
 }
+function renderViewModal(){
+  const tx = viewingId ? transactions.find(function(t){ return t.id === viewingId; }) : null;
+  if (!tx){ return '<div class="modal-overlay" id="view-overlay" hidden></div>'; }
+  const dotColor = categoryColor(tx.category, tx.type);
+  const sign = tx.type === 'income' ? '+' : '−';
+  const cls = tx.type === 'income' ? 'pos' : 'neg';
+  return '<div class="modal-overlay" id="view-overlay">' +
+    '<div class="modal card">' +
+      '<h2>Transaction details</h2>' +
+      '<div class="view-rows">' +
+        '<div class="view-row"><span class="view-label">Type</span><span class="view-value">' + (tx.type === 'income' ? 'Income' : 'Expense') + '</span></div>' +
+        '<div class="view-row"><span class="view-label">Amount</span><span class="view-value row-amount ' + cls + '">' + sign + formatAmount(tx.amount, settings.currency) + '</span></div>' +
+        '<div class="view-row"><span class="view-label">Category</span><span class="view-value"><span class="row-dot" style="background:' + escapeHtml(dotColor) + '; display:inline-block; margin-right:8px;"></span>' + escapeHtml(tx.category) + '</span></div>' +
+        '<div class="view-row"><span class="view-label">Date</span><span class="view-value">' + escapeHtml(formatDate(tx.date)) + '</span></div>' +
+        '<div class="view-row"><span class="view-label">Note</span><span class="view-value">' + (tx.note ? escapeHtml(tx.note) : '—') + '</span></div>' +
+      '</div>' +
+      '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" data-action="close-view">Close</button>' +
+        '<button type="button" class="btn btn-primary" data-action="edit-from-view" data-id="' + escapeHtml(tx.id) + '">Edit</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
 function renderEditModal(){
   const tx = editingId ? transactions.find(function(t){ return t.id === editingId; }) : null;
   if (!tx){ return '<div class="modal-overlay" id="edit-overlay" hidden></div>'; }
@@ -408,6 +439,7 @@ function renderApp(){
     '<button type="button" class="fab" data-action="open-add" aria-label="Add transaction">+</button>' +
     renderAddModal() +
     renderSettingsModal() +
+    renderViewModal() +
     renderEditModal() +
     '<div id="toast" class="toast" hidden></div>'
   );
@@ -511,6 +543,7 @@ appEl.addEventListener('click', function(e){
   if (e.target && e.target.id === 'settings-overlay'){ settingsOpen = false; render(); return; }
   if (e.target && e.target.id === 'edit-overlay'){ editingId = null; render(); return; }
   if (e.target && e.target.id === 'add-overlay'){ addOpen = false; render(); return; }
+  if (e.target && e.target.id === 'view-overlay'){ viewingId = null; render(); return; }
   const btn = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!btn) return;
   const action = btn.getAttribute('data-action');
@@ -520,6 +553,10 @@ appEl.addEventListener('click', function(e){
     settingsOpen = false; render();
   } else if (action === 'close-edit'){
     editingId = null; render();
+  } else if (action === 'close-view'){
+    viewingId = null; render();
+  } else if (action === 'edit-from-view'){
+    viewingId = null; editingId = btn.getAttribute('data-id'); render();
   } else if (action === 'open-add'){
     addOpen = true; render();
   } else if (action === 'close-add'){
@@ -607,7 +644,7 @@ function endSwipe(){
   if (!swipe.dragging){
     const tappedId = swipe.id;
     swipe = null;
-    editingId = tappedId;
+    viewingId = tappedId;
     render();
     return;
   }

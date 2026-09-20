@@ -103,8 +103,12 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .row-cat{font-weight:600; font-size:.94rem;}
 .row-note{font-size:.82rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .row-meta{display:contents;}
-.row-date{font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--ink-soft); flex:none; width:60px;
-  align-self:flex-start; margin-top:2px;}
+.row-date{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  flex:none; width:44px; align-self:flex-start; margin-top:2px; text-align:center;}
+.row-date-month{font-family:"IBM Plex Mono",monospace; font-size:.66rem; text-transform:uppercase;
+  letter-spacing:.04em; color:var(--ink-soft);}
+.row-date-day{font-family:"IBM Plex Mono",monospace; font-size:.95rem; font-weight:600; color:var(--ink);
+  font-variant-numeric:tabular-nums;}
 .row-amount{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:.95rem; flex:none;
   font-variant-numeric:tabular-nums; min-width:80px; text-align:right;}
 .row-amount.pos{color:var(--income);} .row-amount.neg{color:var(--expense);}
@@ -153,7 +157,7 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
   .row-dot{grid-area:dot; margin-top:6px;}
   .row-main{grid-area:main;}
   .row-meta{display:flex; grid-area:meta; gap:10px;}
-  .row-date{width:auto;}
+  .row-date{align-self:auto; margin-top:0; flex-direction:row; gap:4px;}
   .row-amount{grid-area:amount; text-align:right; align-self:center;}
 }
 </style>
@@ -204,6 +208,14 @@ function formatDate(d){
   const dt = new Date(d + 'T00:00:00');
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+}
+function formatDateParts(d){
+  const dt = new Date(d + 'T00:00:00');
+  if (isNaN(dt.getTime())) return { month: '', day: String(d) };
+  return {
+    month: dt.toLocaleDateString(undefined, {month:'short'}),
+    day: dt.toLocaleDateString(undefined, {day:'numeric'})
+  };
 }
 const WARN_MESSAGE = 'කරුණාකර ණය ගෙවීමට වගබලාගන්න 😒';
 function statusMessage(balance, symbol){
@@ -284,7 +296,7 @@ function renderRow(t){
         (t.note ? '<span class="row-note">' + escapeHtml(t.note) + '</span>' : '') +
       '</div>' +
       '<div class="row-meta">' +
-        '<span class="row-date">' + escapeHtml(formatDate(t.date)) + '</span>' +
+        (function(){ const p = formatDateParts(t.date); return '<span class="row-date"><span class="row-date-month">' + escapeHtml(p.month) + '</span><span class="row-date-day">' + escapeHtml(p.day) + '</span></span>'; })() +
       '</div>' +
       '<span class="row-amount ' + cls + '">' + sign + formatAmount(t.amount, settings.currency) + '</span>' +
     '</div>' +

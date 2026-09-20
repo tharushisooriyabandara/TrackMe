@@ -410,7 +410,7 @@ function renderApp(){
     const d = String(b.date||'').localeCompare(String(a.date||''));
     return d !== 0 ? d : String(b.id).localeCompare(String(a.id));
   });
-  const totals = computeTotals(sorted, filter);
+  const totals = computeTotals(sorted, 'all');
   const hasExamples = sorted.some(function(t){ return t.isExample; });
   const visible = filter === 'month' ? sorted.filter(function(t){ return String(t.date).slice(0,7) === currentYm(); }) : sorted;
   const groups = groupByMonth(visible);
@@ -421,7 +421,7 @@ function renderApp(){
       '<button class="icon-btn" type="button" data-action="open-settings" aria-label="Settings">⚙</button>' +
     '</header>' +
     '<section class="hero">' +
-      '<div class="hero-balance"><span class="hero-label">Balance' + (filter==='month' ? ' · this month' : '') + '</span>' +
+      '<div class="hero-balance"><span class="hero-label">Balance</span>' +
       '<span class="hero-number' + (totals.balance < 0 ? ' neg' : '') + '">' + formatAmount(totals.balance, settings.currency) + '</span>' +
       (function(){ const m = statusMessage(totals.balance, settings.currency); return m ? '<p class="hero-status hero-status-' + m.tone + '">' + escapeHtml(m.text) + '</p>' : ''; })() +
       '</div>' +

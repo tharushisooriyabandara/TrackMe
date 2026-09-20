@@ -604,7 +604,13 @@ appEl.addEventListener('pointermove', function(e){
 
 function endSwipe(){
   if (!swipe) return;
-  if (!swipe.dragging){ swipe = null; return; }
+  if (!swipe.dragging){
+    const tappedId = swipe.id;
+    swipe = null;
+    editingId = tappedId;
+    render();
+    return;
+  }
   const rowEl = swipe.rowEl;
   const id = swipe.id;
   rowEl.style.transition = 'transform .18s ease';

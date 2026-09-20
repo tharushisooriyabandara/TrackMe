@@ -198,7 +198,7 @@ function formatDate(d){
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString(undefined, {month:'short', day:'numeric'});
 }
-const WARN_MESSAGE = 'කරුණාකර ණය ගෙවීමට වගබලාගන්න 😒💸';
+const WARN_MESSAGE = 'කරුණාකර ණය ගෙවීමට වගබලාගන්න 😒';
 function statusMessage(balance, symbol){
   if (balance < 0){
     return { text: WARN_MESSAGE, tone: 'warn' };

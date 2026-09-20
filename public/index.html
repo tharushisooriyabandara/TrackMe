@@ -134,6 +134,12 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
   font-size:1.8rem; line-height:1; cursor:pointer; box-shadow:var(--shadow); z-index:5;
   display:flex; align-items:center; justify-content:center;}
 .fab:hover{filter:brightness(1.05);}
+.emoji-rain{position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:8;}
+.rain-emoji{position:absolute; top:-10vh; animation-name:rain-fall; animation-timing-function:linear; animation-fill-mode:forwards;}
+@keyframes rain-fall{
+  0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+  100%{ transform:translateY(120vh) rotate(360deg); opacity:.85; }
+}
 @media (max-width:520px){
   .form-grid{grid-template-columns:1fr;}
   .hero{flex-direction:column; align-items:flex-start;}
@@ -447,10 +453,16 @@ async function loadAll(){
   render();
   dataReady = true;
   maybeHideSplash();
+  if (!rainTriggered){
+    rainTriggered = true;
+    const overall = computeTotals(transactions, 'all');
+    setTimeout(function(){ spawnEmojiRain(overall.balance < 0 ? 'bad' : 'good'); }, 2000);
+  }
 }
 
 let splashMinTimePassed = false;
 let dataReady = false;
+let rainTriggered = false;
 function maybeHideSplash(){
   if (!splashMinTimePassed || !dataReady) return;
   const s = document.getElementById('splash');
@@ -460,6 +472,27 @@ function maybeHideSplash(){
   }
 }
 setTimeout(function(){ splashMinTimePassed = true; maybeHideSplash(); }, 1800);
+
+const GOOD_RAIN_EMOJI = ['\u{1F389}','\u{1F4B0}','✨','\u{1F60A}','\u{1F4C8}','\u{1F973}'];
+const BAD_RAIN_EMOJI = ['\u{1F622}','\u{1F4B8}','\u{1F4C9}','\u{1F629}','\u{1F62D}','\u{1F972}'];
+function spawnEmojiRain(kind){
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const set = kind === 'good' ? GOOD_RAIN_EMOJI : BAD_RAIN_EMOJI;
+  const container = document.createElement('div');
+  container.className = 'emoji-rain';
+  for (let i = 0; i < 18; i++){
+    const span = document.createElement('span');
+    span.className = 'rain-emoji';
+    span.textContent = set[Math.floor(Math.random() * set.length)];
+    span.style.left = (Math.random() * 96) + '%';
+    span.style.animationDuration = (2.2 + Math.random() * 1.6) + 's';
+    span.style.animationDelay = (Math.random() * 0.8) + 's';
+    span.style.fontSize = (1.2 + Math.random() * 1.1) + 'rem';
+    container.appendChild(span);
+  }
+  document.body.appendChild(container);
+  setTimeout(function(){ container.remove(); }, 4600);
+}
 
 appEl.addEventListener('click', function(e){
   if (e.target && e.target.id === 'settings-overlay'){ settingsOpen = false; render(); return; }

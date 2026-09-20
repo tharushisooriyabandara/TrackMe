@@ -85,8 +85,7 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
   opacity:0; pointer-events:none;}
 .row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line);
   border-radius:var(--radius-sm); padding:12px 14px; position:relative; touch-action:pan-y; user-select:none;}
-.row-dot{width:9px; height:9px; border-radius:50%; flex:none;}
-.row-dot.pos{background:var(--income);} .row-dot.neg{background:var(--expense);}
+.row-dot{width:10px; height:10px; border-radius:50%; flex:none;}
 .row-main{display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;}
 .row-cat{font-weight:600; font-size:.94rem;}
 .row-note{font-size:.82rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -99,9 +98,21 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .empty{color:var(--ink-soft); text-align:center; padding:24px 0; font-size:.9rem;}
 .modal-overlay{position:fixed; inset:0; background:rgba(10,15,13,.45); display:flex; align-items:center;
   justify-content:center; padding:16px; z-index:10;}
-.modal{max-width:360px; width:100%; display:flex; flex-direction:column; gap:12px;}
+.modal{max-width:420px; width:100%; max-height:88vh; overflow-y:auto; display:flex; flex-direction:column; gap:14px;}
 .modal h2{font-size:1.2rem;}
 .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:6px;}
+.cat-manager{border-top:1px solid var(--line); padding-top:14px; display:flex; flex-direction:column; gap:10px;}
+.cat-list{display:flex; flex-direction:column; gap:2px; max-height:180px; overflow-y:auto;}
+.cat-row{display:flex; align-items:center; gap:10px; padding:5px 2px;}
+.cat-row span{flex:1; font-size:.9rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.cat-row input[type=color], .cat-add input[type=color]{width:28px; height:28px; padding:0; border:1px solid var(--line);
+  border-radius:6px; background:none; cursor:pointer; flex:none;}
+.cat-row .row-del{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:.95rem; padding:4px; min-width:28px; flex:none;}
+.cat-row .row-del:hover{color:var(--expense);}
+.cat-add{display:flex; gap:8px; align-items:center;}
+.cat-add input[type=text]{flex:1; min-width:0; font:inherit; font-size:.9rem; padding:8px 10px; border:1px solid var(--line);
+  border-radius:8px; background:var(--surface-2); color:var(--ink);}
+.btn-sm{padding:8px 14px; margin-top:0; font-size:.85rem; flex:none;}
 .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:var(--paper);
   padding:10px 18px; border-radius:999px; font-size:.85rem; box-shadow:var(--shadow); z-index:20;}
 .toast .link-btn{color:var(--paper); font-weight:600;}
@@ -132,15 +143,18 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://nczcqmajwsfghahhlbkf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jemNxbWFqd3NmZ2hhaGhsYmtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDk3NjgsImV4cCI6MjEwNTQ4NTc2OH0.Mi4o6Pjxwv33z6m0DjP7bGaArfIG9ejV0MdqwOvb5GI";
 
-const INCOME_CATEGORIES = ['Salary','Freelance','Gift','Investment','Refund','Other'];
-const EXPENSE_CATEGORIES = ['Rent & Housing','Groceries','Utilities','Transport','Dining Out','Entertainment','Health','Shopping','Other'];
 const DEFAULT_SETTINGS = { currency: 'Rs', names: ['Tharu', 'Adee'] };
+const DEFAULT_CATEGORY_COLOR = '#8A8F87';
+const SWATCHES = ['#2E7D5B','#3A5A78','#B5834D','#6B5B95','#4F9DA6','#B23B49','#C97B3D','#4F6D7A','#8E6C88','#C2574A','#9A7B2F','#4A8FA6','#A6527A','#8A8F87'];
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let transactions = [];
 let settings = DEFAULT_SETTINGS;
+let categories = [];
 let filter = 'all';
+let categoryTab = 'income';
+let settingsOpen = false;
 let lastDeleted = null;
 let toastTimer = null;
 let flashTimer = null;
@@ -163,6 +177,13 @@ function formatAmount(amount, symbol){
   const n = Number(amount) || 0;
   const str = Math.abs(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
   return (n < 0 ? '−' : '') + escapeHtml(symbol) + str;
+}
+function categoriesForType(type){
+  return categories.filter(function(c){ return c.type === type; });
+}
+function categoryColor(name, type){
+  const found = categories.find(function(c){ return c.name === name && c.type === type; });
+  return found ? found.color : DEFAULT_CATEGORY_COLOR;
 }
 function computeTotals(list, flt){
   const ym = currentYm();
@@ -198,7 +219,7 @@ function renderAddForm(){
     '<div class="form-grid">' +
       '<label class="field"><span>Amount</span><input type="number" name="amount" min="0" step="0.01" inputmode="decimal" required placeholder="0.00"></label>' +
       '<label class="field"><span>Category</span><select name="category" id="category-select">' +
-        INCOME_CATEGORIES.map(function(c){ return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('') +
+        categoriesForType('income').map(function(c){ return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>'; }).join('') +
       '</select></label>' +
       '<label class="field"><span>Date</span><input type="date" name="date" value="' + todayStr() + '" required></label>' +
       '<label class="field"><span>Who</span><select name="who">' +
@@ -214,10 +235,11 @@ function renderAddForm(){
 function renderRow(t){
   const sign = t.type === 'income' ? '+' : '−';
   const cls = t.type === 'income' ? 'pos' : 'neg';
+  const dotColor = categoryColor(t.category, t.type);
   return '<div class="row-wrap" data-id="' + escapeHtml(t.id) + '">' +
     '<div class="row-swipe-bg" aria-hidden="true">Delete</div>' +
     '<div class="row">' +
-      '<span class="row-dot ' + cls + '" aria-hidden="true"></span>' +
+      '<span class="row-dot" style="background:' + escapeHtml(dotColor) + '" aria-hidden="true"></span>' +
       '<div class="row-main"><span class="row-cat">' + escapeHtml(t.category) + '</span>' +
         (t.note ? '<span class="row-note">' + escapeHtml(t.note) + '</span>' : '') +
       '</div>' +
@@ -233,18 +255,45 @@ function renderGroup(g){
   return '<div class="month-group"><h2 class="month-label">' + escapeHtml(g.label) + '</h2>' +
     '<div class="rows">' + g.items.map(renderRow).join('') + '</div></div>';
 }
-function renderSettingsModal(){
-  return '<div class="modal-overlay" id="settings-overlay" hidden>' +
-    '<form class="modal card" id="settings-form" data-action="save-settings">' +
-      '<h2>Settings</h2>' +
-      '<label class="field"><span>Your name</span><input type="text" name="nameA" maxlength="24" value="' + escapeHtml(settings.names[0]) + '" required></label>' +
-      '<label class="field"><span>Partner’s name</span><input type="text" name="nameB" maxlength="24" value="' + escapeHtml(settings.names[1]) + '" required></label>' +
-      '<label class="field"><span>Currency symbol</span><input type="text" name="currency" maxlength="4" value="' + escapeHtml(settings.currency) + '" required></label>' +
-      '<div class="modal-actions">' +
-        '<button type="button" class="btn btn-ghost" data-action="close-settings">Cancel</button>' +
-        '<button type="submit" class="btn btn-primary">Save</button>' +
-      '</div>' +
+function renderCategoryManager(){
+  const list = categoriesForType(categoryTab);
+  return '<div class="cat-manager">' +
+    '<h2>Categories</h2>' +
+    '<div class="filter-row" role="tablist">' +
+      '<button type="button" class="chip' + (categoryTab==='income'?' active':'') + '" data-action="cat-tab" data-value="income">Income</button>' +
+      '<button type="button" class="chip' + (categoryTab==='expense'?' active':'') + '" data-action="cat-tab" data-value="expense">Expense</button>' +
+    '</div>' +
+    '<div class="cat-list">' +
+      (list.length ? list.map(function(c){
+        return '<div class="cat-row">' +
+          '<input type="color" value="' + escapeHtml(c.color) + '" data-action="cat-color" data-id="' + escapeHtml(c.id) + '" aria-label="Color for ' + escapeHtml(c.name) + '">' +
+          '<span>' + escapeHtml(c.name) + '</span>' +
+          '<button type="button" class="row-del" data-action="delete-category" data-id="' + escapeHtml(c.id) + '" aria-label="Delete ' + escapeHtml(c.name) + '">✕</button>' +
+        '</div>';
+      }).join('') : '<p class="empty" style="padding:4px 0;">No ' + categoryTab + ' categories yet.</p>') +
+    '</div>' +
+    '<form id="category-form" class="cat-add" data-action="add-category">' +
+      '<input type="color" name="color" value="' + SWATCHES[list.length % SWATCHES.length] + '" aria-label="New category color">' +
+      '<input type="text" name="name" placeholder="New ' + categoryTab + ' category" maxlength="30" required>' +
+      '<button type="submit" class="btn btn-primary btn-sm">Add</button>' +
     '</form>' +
+  '</div>';
+}
+function renderSettingsModal(){
+  return '<div class="modal-overlay" id="settings-overlay"' + (settingsOpen ? '' : ' hidden') + '>' +
+    '<div class="modal card">' +
+      '<form id="settings-form" data-action="save-settings">' +
+        '<h2>Settings</h2>' +
+        '<label class="field"><span>Your name</span><input type="text" name="nameA" maxlength="24" value="' + escapeHtml(settings.names[0]) + '" required></label>' +
+        '<label class="field"><span>Partner’s name</span><input type="text" name="nameB" maxlength="24" value="' + escapeHtml(settings.names[1]) + '" required></label>' +
+        '<label class="field"><span>Currency symbol</span><input type="text" name="currency" maxlength="4" value="' + escapeHtml(settings.currency) + '" required></label>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn btn-ghost" data-action="close-settings">Cancel</button>' +
+          '<button type="submit" class="btn btn-primary">Save</button>' +
+        '</div>' +
+      '</form>' +
+      renderCategoryManager() +
+    '</div>' +
   '</div>';
 }
 function renderApp(){
@@ -309,9 +358,10 @@ function flash(form, msg){
 }
 
 async function loadAll(){
-  const [txResult, settingsResult] = await Promise.all([
+  const [txResult, settingsResult, catResult] = await Promise.all([
     supabase.from('transactions').select('*').order('date', { ascending: false }),
-    supabase.from('settings').select('*').eq('id', 'main').maybeSingle()
+    supabase.from('settings').select('*').eq('id', 'main').maybeSingle(),
+    supabase.from('categories').select('*').order('created_at', { ascending: true })
   ]);
   if (txResult.error){
     appEl.innerHTML = '<p class="empty">Could not load data (' + escapeHtml(txResult.error.message) + ').</p>';
@@ -328,18 +378,29 @@ async function loadAll(){
   } else {
     settings = DEFAULT_SETTINGS;
   }
+  if (!catResult.error){
+    categories = (catResult.data || []).map(function(c){
+      return { id: c.id, name: c.name, type: c.type, color: c.color };
+    });
+  }
   render();
 }
 
 appEl.addEventListener('click', function(e){
-  if (e.target && e.target.id === 'settings-overlay'){ e.target.hidden = true; return; }
+  if (e.target && e.target.id === 'settings-overlay'){ settingsOpen = false; render(); return; }
   const btn = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!btn) return;
   const action = btn.getAttribute('data-action');
   if (action === 'open-settings'){
-    document.getElementById('settings-overlay').hidden = false;
+    settingsOpen = true; render();
   } else if (action === 'close-settings'){
-    document.getElementById('settings-overlay').hidden = true;
+    settingsOpen = false; render();
+  } else if (action === 'cat-tab'){
+    categoryTab = btn.getAttribute('data-value'); render();
+  } else if (action === 'delete-category'){
+    supabase.from('categories').delete().eq('id', btn.getAttribute('data-id')).then(function(res){
+      if (res.error) toast('Could not delete category.'); else loadAll();
+    });
   } else if (action === 'filter'){
     filter = btn.getAttribute('data-value'); render();
   } else if (action === 'clear-examples'){
@@ -425,9 +486,16 @@ appEl.addEventListener('change', function(e){
   if (e.target && e.target.name === 'type'){
     const sel = document.getElementById('category-select');
     if (sel){
-      const cats = e.target.value === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-      sel.innerHTML = cats.map(function(c){ return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+      const cats = categoriesForType(e.target.value);
+      sel.innerHTML = cats.map(function(c){ return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>'; }).join('');
     }
+    return;
+  }
+  const colorInput = e.target.closest ? e.target.closest('[data-action="cat-color"]') : null;
+  if (colorInput){
+    supabase.from('categories').update({ color: colorInput.value }).eq('id', colorInput.getAttribute('data-id')).then(function(res){
+      if (res.error) toast('Could not update color.'); else loadAll();
+    });
   }
 });
 
@@ -463,7 +531,18 @@ appEl.addEventListener('submit', function(e){
     };
     supabase.from('settings').upsert(newSettings).then(function(res){
       if (res.error){ toast('Could not save settings.'); return; }
-      document.getElementById('settings-overlay').hidden = true;
+      settingsOpen = false;
+      loadAll();
+    });
+  } else if (action === 'add-category'){
+    const fd3 = new FormData(form);
+    const name = String(fd3.get('name') || '').trim().slice(0,30);
+    if (!name) return;
+    supabase.from('categories').insert({
+      name: name, type: categoryTab, color: String(fd3.get('color') || DEFAULT_CATEGORY_COLOR)
+    }).then(function(res){
+      if (res.error){ toast('Could not add category.'); return; }
+      form.reset();
       loadAll();
     });
   }
@@ -473,6 +552,7 @@ supabase
   .channel('joint-ledger-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, function(){ loadAll(); })
   .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, function(){ loadAll(); })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, function(){ loadAll(); })
   .subscribe();
 
 loadAll();

@@ -51,6 +51,16 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .hero-number{font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:clamp(2.1rem,6vw,2.9rem);
   font-variant-numeric:tabular-nums; color:var(--ink);}
 .hero-number.neg{color:var(--expense);}
+.hero-status{margin:2px 0 0; font-size:.88rem; font-weight:500;}
+.hero-status-warn{color:var(--expense);}
+.hero-status-good{color:var(--income);}
+.hero-status-neutral{color:var(--ink-soft);}
+.splash{position:fixed; inset:0; z-index:30; background:var(--paper); color:var(--ink);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  text-align:center; padding:16px; transition:opacity .4s ease;}
+.splash .brand-mark{font-size:2.2rem; color:var(--accent);}
+.splash h1{font-size:1.9rem;}
+.splash p{margin:0; color:var(--ink-soft); font-size:.9rem;}
 .hero-stats{display:flex; gap:14px; flex-wrap:wrap;}
 .stat{display:flex; flex-direction:column; gap:2px; padding:10px 16px; border-radius:var(--radius-sm); min-width:110px;}
 .stat-income{background:var(--income-bg);}
@@ -137,6 +147,11 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 </style>
 </head>
 <body>
+<div id="splash" class="splash">
+  <span class="brand-mark">&#9670;</span>
+  <h1>Welcome to TrackMe</h1>
+  <p>Loading your shared ledger&hellip;</p>
+</div>
 <div id="app"><p class="empty">Loading&hellip;</p></div>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
@@ -176,6 +191,28 @@ function formatDate(d){
   const dt = new Date(d + 'T00:00:00');
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+}
+const GOOD_MESSAGES = [
+  'Nice! You’re in the green.',
+  'Looking good — keep it up!',
+  'You’re ahead this stretch. \u{1F389}',
+  'Solid! Balance is holding steady.'
+];
+const WARN_MESSAGES = [
+  'Aiyoo… you’re short by {amt}.',
+  'Uh oh — you’re due {amt}.',
+  'Careful, you’re {amt} in the red.'
+];
+function statusMessage(balance, symbol){
+  if (balance < 0){
+    const amt = formatAmount(Math.abs(balance), symbol);
+    const tmpl = WARN_MESSAGES[Math.abs(Math.round(balance)) % WARN_MESSAGES.length];
+    return { text: tmpl.replace('{amt}', amt), tone: 'warn' };
+  }
+  if (balance === 0){
+    return { text: 'Right on zero — breaking even.', tone: 'neutral' };
+  }
+  return { text: GOOD_MESSAGES[Math.round(balance) % GOOD_MESSAGES.length], tone: 'good' };
 }
 function formatAmount(amount, symbol){
   const n = Number(amount) || 0;
@@ -336,7 +373,9 @@ function renderApp(){
     '</header>' +
     '<section class="hero">' +
       '<div class="hero-balance"><span class="hero-label">Balance' + (filter==='month' ? ' · this month' : '') + '</span>' +
-      '<span class="hero-number' + (totals.balance < 0 ? ' neg' : '') + '">' + formatAmount(totals.balance, settings.currency) + '</span></div>' +
+      '<span class="hero-number' + (totals.balance < 0 ? ' neg' : '') + '">' + formatAmount(totals.balance, settings.currency) + '</span>' +
+      (function(){ const m = statusMessage(totals.balance, settings.currency); return '<p class="hero-status hero-status-' + m.tone + '">' + escapeHtml(m.text) + '</p>'; })() +
+      '</div>' +
       '<div class="hero-stats">' +
         '<div class="stat stat-income"><span class="stat-label">Income</span><span class="stat-value">' + formatAmount(totals.income, settings.currency) + '</span></div>' +
         '<div class="stat stat-expense"><span class="stat-label">Expenses</span><span class="stat-value">' + formatAmount(totals.expense, settings.currency) + '</span></div>' +
@@ -408,7 +447,21 @@ async function loadAll(){
     });
   }
   render();
+  dataReady = true;
+  maybeHideSplash();
 }
+
+let splashMinTimePassed = false;
+let dataReady = false;
+function maybeHideSplash(){
+  if (!splashMinTimePassed || !dataReady) return;
+  const s = document.getElementById('splash');
+  if (s && !s.hidden){
+    s.style.opacity = '0';
+    setTimeout(function(){ s.hidden = true; }, 400);
+  }
+}
+setTimeout(function(){ splashMinTimePassed = true; maybeHideSplash(); }, 1800);
 
 appEl.addEventListener('click', function(e){
   if (e.target && e.target.id === 'settings-overlay'){ settingsOpen = false; render(); return; }

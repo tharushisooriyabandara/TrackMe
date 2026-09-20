@@ -93,7 +93,6 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
 .row-cat{font-weight:600; font-size:.94rem;}
 .row-note{font-size:.82rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .row-meta{display:contents;}
-.row-who{font-size:.8rem; color:var(--ink-soft); flex:none; width:70px;}
 .row-date{font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--ink-soft); flex:none; width:60px;}
 .row-amount{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:.95rem; flex:none;
   font-variant-numeric:tabular-nums; min-width:80px; text-align:right;}
@@ -132,7 +131,7 @@ h1,h2{font-family:"Fraunces",Georgia,serif; margin:0; text-wrap:balance;}
   .row-dot{grid-area:dot; margin-top:6px;}
   .row-main{grid-area:main;}
   .row-meta{display:flex; grid-area:meta; gap:10px;}
-  .row-who,.row-date{width:auto;}
+  .row-date{width:auto;}
   .row-amount{grid-area:amount; text-align:right; align-self:center;}
 }
 </style>
@@ -147,7 +146,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://nczcqmajwsfghahhlbkf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jemNxbWFqd3NmZ2hhaGhsYmtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDk3NjgsImV4cCI6MjEwNTQ4NTc2OH0.Mi4o6Pjxwv33z6m0DjP7bGaArfIG9ejV0MdqwOvb5GI";
 
-const DEFAULT_SETTINGS = { currency: 'Rs', names: ['Tharu', 'Adee'] };
+const DEFAULT_SETTINGS = { currency: 'Rs' };
 const DEFAULT_CATEGORY_COLOR = '#8A8F87';
 const SWATCHES = ['#2E7D5B','#3A5A78','#B5834D','#6B5B95','#4F9DA6','#B23B49','#C97B3D','#4F6D7A','#8E6C88','#C2574A','#9A7B2F','#4A8FA6','#A6527A','#8A8F87'];
 
@@ -215,7 +214,6 @@ function groupByMonth(list){
 }
 
 function renderAddForm(){
-  const [nameA, nameB] = settings.names;
   return '<form id="add-form" class="card add-form" data-action="add">' +
     '<div class="type-toggle" role="radiogroup" aria-label="Type">' +
       '<label class="pill pill-income"><input type="radio" name="type" value="income" checked> Income</label>' +
@@ -227,10 +225,6 @@ function renderAddForm(){
         categoriesForType('income').map(function(c){ return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>'; }).join('') +
       '</select></label>' +
       '<label class="field"><span>Date</span><input type="date" name="date" value="' + todayStr() + '" required></label>' +
-      '<label class="field"><span>Who</span><select name="who">' +
-        '<option value="' + escapeHtml(nameA) + '">' + escapeHtml(nameA) + '</option>' +
-        '<option value="' + escapeHtml(nameB) + '">' + escapeHtml(nameB) + '</option>' +
-      '</select></label>' +
       '<label class="field field-wide"><span>Note (optional)</span><input type="text" name="note" maxlength="80" placeholder="e.g. Groceries at the market"></label>' +
     '</div>' +
     '<p class="form-error" hidden></p>' +
@@ -249,7 +243,6 @@ function renderRow(t){
         (t.note ? '<span class="row-note">' + escapeHtml(t.note) + '</span>' : '') +
       '</div>' +
       '<div class="row-meta">' +
-        '<span class="row-who">' + escapeHtml(t.who) + '</span>' +
         '<span class="row-date">' + escapeHtml(formatDate(t.date)) + '</span>' +
       '</div>' +
       '<span class="row-amount ' + cls + '">' + sign + formatAmount(t.amount, settings.currency) + '</span>' +
@@ -289,8 +282,6 @@ function renderSettingsModal(){
     '<div class="modal card">' +
       '<form id="settings-form" data-action="save-settings">' +
         '<h2>Settings</h2>' +
-        '<label class="field"><span>Your name</span><input type="text" name="nameA" maxlength="24" value="' + escapeHtml(settings.names[0]) + '" required></label>' +
-        '<label class="field"><span>Partner’s name</span><input type="text" name="nameB" maxlength="24" value="' + escapeHtml(settings.names[1]) + '" required></label>' +
         '<label class="field"><span>Currency symbol</span><input type="text" name="currency" maxlength="4" value="' + escapeHtml(settings.currency) + '" required></label>' +
         '<div class="modal-actions">' +
           '<button type="button" class="btn btn-ghost" data-action="close-settings">Cancel</button>' +
@@ -305,7 +296,6 @@ function renderEditModal(){
   const tx = editingId ? transactions.find(function(t){ return t.id === editingId; }) : null;
   if (!tx){ return '<div class="modal-overlay" id="edit-overlay" hidden></div>'; }
   const cats = categoriesForType(tx.type);
-  const nameA = settings.names[0], nameB = settings.names[1];
   return '<div class="modal-overlay" id="edit-overlay">' +
     '<form class="modal card" id="edit-form" data-action="save-edit" data-id="' + escapeHtml(tx.id) + '">' +
       '<h2>Edit transaction</h2>' +
@@ -319,10 +309,6 @@ function renderEditModal(){
           cats.map(function(c){ return '<option value="' + escapeHtml(c.name) + '"' + (c.name===tx.category?' selected':'') + '>' + escapeHtml(c.name) + '</option>'; }).join('') +
         '</select></label>' +
         '<label class="field"><span>Date</span><input type="date" name="date" required value="' + escapeHtml(tx.date) + '"></label>' +
-        '<label class="field"><span>Who</span><select name="who">' +
-          '<option value="' + escapeHtml(nameA) + '"' + (tx.who===nameA?' selected':'') + '>' + escapeHtml(nameA) + '</option>' +
-          '<option value="' + escapeHtml(nameB) + '"' + (tx.who===nameB?' selected':'') + '>' + escapeHtml(nameB) + '</option>' +
-        '</select></label>' +
         '<label class="field field-wide"><span>Note (optional)</span><input type="text" name="note" maxlength="80" value="' + escapeHtml(tx.note) + '"></label>' +
       '</div>' +
       '<p class="form-error" hidden></p>' +
@@ -408,11 +394,11 @@ async function loadAll(){
   transactions = (txResult.data || []).map(function(t){
     return {
       id: t.id, type: t.type, amount: Number(t.amount), category: t.category,
-      note: t.note || '', who: t.who, date: t.date, isExample: !!t.is_example
+      note: t.note || '', date: t.date, isExample: !!t.is_example
     };
   });
   if (settingsResult.data){
-    settings = { currency: settingsResult.data.currency, names: [settingsResult.data.name_a, settingsResult.data.name_b] };
+    settings = { currency: settingsResult.data.currency };
   } else {
     settings = DEFAULT_SETTINGS;
   }
@@ -452,7 +438,7 @@ appEl.addEventListener('click', function(e){
     if (!lastDeleted) return;
     const tx = lastDeleted; lastDeleted = null; clearTimeout(toastTimer);
     supabase.from('transactions').insert({
-      type: tx.type, amount: tx.amount, category: tx.category, note: tx.note, who: tx.who, date: tx.date, is_example: tx.isExample
+      type: tx.type, amount: tx.amount, category: tx.category, note: tx.note, date: tx.date, is_example: tx.isExample
     }).then(function(res){
       if (res.error) toast('Could not restore.'); else loadAll();
     });
@@ -568,7 +554,6 @@ appEl.addEventListener('submit', function(e){
       amount: Math.round(amount * 100) / 100,
       category: (fd.get('category') || 'Other').toString().slice(0,40),
       note: (fd.get('note') || '').toString().slice(0,80),
-      who: (fd.get('who') || settings.names[0]).toString(),
       date: (fd.get('date') || todayStr()).toString(),
       is_example: false
     };
@@ -581,8 +566,6 @@ appEl.addEventListener('submit', function(e){
     const fd2 = new FormData(form);
     const newSettings = {
       id: 'main',
-      name_a: String(fd2.get('nameA') || 'Me').slice(0,24),
-      name_b: String(fd2.get('nameB') || 'Partner').slice(0,24),
       currency: String(fd2.get('currency') || '$').slice(0,4)
     };
     supabase.from('settings').upsert(newSettings).then(function(res){
@@ -611,7 +594,6 @@ appEl.addEventListener('submit', function(e){
       amount: Math.round(amount * 100) / 100,
       category: (fd4.get('category') || 'Other').toString().slice(0,40),
       note: (fd4.get('note') || '').toString().slice(0,80),
-      who: (fd4.get('who') || settings.names[0]).toString(),
       date: (fd4.get('date') || todayStr()).toString()
     };
     supabase.from('transactions').update(updated).eq('id', id).then(function(res){
